@@ -1,24 +1,40 @@
 ﻿using System;
-using System.Security.Cryptography;
+using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Text;
-using System.Net;
+using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Security;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
-using System.Diagnostics;
-using System.Security.Principal;
-using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Net.Security;
-using System.Windows;
+using System.Security.Principal;
+using System.Text;
 using System.Threading;
+using System.Windows;
 
 namespace KeyAuth
 {
     public class api
     {
-        public string name, ownerid, secret, version;
+
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GetCurrentProcess();
+
+        // Import the required Atom Table functions from kernel32.dll
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern ushort GlobalAddAtom(string lpString);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern ushort GlobalFindAtom(string lpString);
+
+        public string name, ownerid, secret, version, path, seed;
         /// <summary>
         /// Set up your application credentials in order to use keyauth
         /// </summary>
@@ -26,12 +42,13 @@ namespace KeyAuth
         /// <param name="ownerid">Your OwnerID, found in your account settings.</param>
         /// <param name="secret">Application Secret</param>
         /// <param name="version">Application Version, if version doesnt match it will open the download link you set up in your application settings and close the app, if empty the app will close</param>
-        public api(string name, string ownerid, string secret, string version)
+        public api(string name, string ownerid, string secret, string version, string path = null)
         {
             if (ownerid.Length != 10 || secret.Length != 64)
             {
+                Thread.Sleep(2000);
                 error("Application not setup correctly. Please watch video link found in Program.cs");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
             }
 
             this.name = name;
@@ -41,6 +58,8 @@ namespace KeyAuth
             this.secret = secret;
 
             this.version = version;
+
+            this.version = path;
         }
 
         #region structures
@@ -49,6 +68,9 @@ namespace KeyAuth
         {
             [DataMember]
             public bool success { get; set; }
+
+            [DataMember]
+            public bool newSession { get; set; }
 
             [DataMember]
             public string sessionid { get; set; }
@@ -61,6 +83,9 @@ namespace KeyAuth
 
             [DataMember]
             public string message { get; set; }
+
+            [DataMember]
+            public string ownerid { get; set; }
 
             [DataMember]
             public string download { get; set; }
@@ -135,6 +160,24 @@ namespace KeyAuth
         /// </summary>
         public void init()
         {
+            Random random = new Random();
+
+            // Generate a random length for the string (let's assume between 5 and 50 characters)
+            int length = random.Next(5, 51); // Min length: 5, Max length: 50
+
+            StringBuilder sb = new StringBuilder(length);
+
+            // Define the range of printable ASCII characters (32-126)
+            for (int i = 0; i < length; i++)
+            {
+                // Generate a random printable ASCII character
+                char randomChar = (char)random.Next(32, 127); // ASCII 32 to 126
+                sb.Append(randomChar);
+            }
+
+            seed = sb.ToString();
+            checkAtom();
+
             string sentKey = encryption.iv_key();
             enckey = sentKey + "-" + secret;
             var values_to_upload = new NameValueCollection
@@ -147,35 +190,77 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
+            if (!string.IsNullOrEmpty(path))
+            {
+                values_to_upload.Add("token", File.ReadAllText(path));
+                values_to_upload.Add("thash", TokenHash(path));
+            }
+
+
             var response = req(values_to_upload);
 
             if (response == "KeyAuth_Invalid")
             {
                 error("Application not found");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
             }
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
-            {
-                load_app_data(json.appinfo);
-                sessionid = json.sessionid;
-                initialized = true;
-            }
-            else if (json.message == "invalidver")
-            {
-                app_data.downloadLink = json.download;
-            }
+            
+                load_response_struct(json);
+                if (json.success)
+                {
+                    load_app_data(json.appinfo);
+                    sessionid = json.sessionid;
+                    initialized = true;
+                }
+                else if (json.message == "invalidver")
+                {
+                    app_data.downloadLink = json.download;
+                }
+           
 
         }
 
+
+        void checkAtom()
+        {
+            Thread atomCheckThread = new Thread(() =>
+            {
+                while (true)
+                {
+                    Thread.Sleep(60000); // give people 1 minute to login
+
+                    ushort foundAtom = GlobalFindAtom(seed);
+                    if (foundAtom == 0)
+                    {
+                        TerminateProcess(GetCurrentProcess(), 1);
+                    }
+                }
+            });
+
+            atomCheckThread.IsBackground = true; // Ensure the thread does not block program exit
+            atomCheckThread.Start();
+        }
+
+
+        public static string TokenHash(string tokenPath)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                using (var s = File.OpenRead(tokenPath))
+                {
+                    byte[] bytes = sha256.ComputeHash(s);
+                    return BitConverter.ToString(bytes).Replace("-", string.Empty);
+                }
+            }
+        }
         public void CheckInit()
         {
             if (!initialized)
             {
                 error("You must run the function KeyAuthApp.init(); first");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
             }
         }
         /// <summary>
@@ -335,7 +420,7 @@ namespace KeyAuth
             listener.Stop();
 
             if (!success)
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
 
         }
 
@@ -808,7 +893,7 @@ namespace KeyAuth
             {
                 Console.WriteLine($"Error: {json.message}");
                 Thread.Sleep(3000);
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
             }
         }
 
@@ -854,7 +939,7 @@ namespace KeyAuth
                 RedirectStandardError = true,
                 UseShellExecute = false
             });
-            Environment.Exit(0);
+            TerminateProcess(GetCurrentProcess(), 1);
         }
         private static string req(NameValueCollection post_data)
         {
@@ -880,11 +965,11 @@ namespace KeyAuth
                 {
                     case (HttpStatusCode)429: // client hit our rate limit
                         error("You're connecting too fast to loader, slow down.");
-                        Environment.Exit(0);
+                        TerminateProcess(GetCurrentProcess(), 1);
                         return "";
                     default: // site won't resolve. you should use keyauth.uk domain since it's not blocked by any ISPs
                         error("Connection failure. Please try again, or contact us for help.");
-                        Environment.Exit(0);
+                        TerminateProcess(GetCurrentProcess(), 1);
                         return "";
                 }
             }
@@ -909,13 +994,13 @@ namespace KeyAuth
                 if (clientComputed != signature)
                 {
                     error("Signaure check fail. Try to run the program again, your session may have expired.");
-                    Environment.Exit(0);
+                    TerminateProcess(GetCurrentProcess(), 1);
                 }
             }
             catch
             {
                 error("Signaure check fail. Try to run the program again, your session may have expired.");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
             }
         }
 
@@ -1007,6 +1092,11 @@ namespace KeyAuth
 
     public static class encryption
     {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GetCurrentProcess();
         public static string HashHMAC(string enckey, string resp)
         {
             byte[] key = Encoding.ASCII.GetBytes(enckey);
@@ -1036,7 +1126,7 @@ namespace KeyAuth
             catch
             {
                 api.error("The session has ended, open program again.");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
                 return null;
             }
         }
