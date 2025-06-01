@@ -18,11 +18,12 @@ namespace KeyAuth
         */
 
         public static api KeyAuthApp = new api(
-            name: "", // Application Name
-            ownerid: "", // Account ID
-            version: "", // Application version. Used for automatic downloads see video here https://www.youtube.com/watch?v=kW195PLCBKs
-            secret: ""                                                                         //path: @"Your_Path_Here" // (OPTIONAL) see tutorial here https://www.youtube.com/watch?v=I9rxt821gMk&t=1s
-        );
+             name: "", // App name
+             ownerid: "", // Account ID
+             version: "1" // Application version. Used for automatic downloads see video here https://www.youtube.com/watch?v=kW195PLCBKs
+                            //path: @"Your_Path_Here" // (OPTIONAL) see tutorial here https://www.youtube.com/watch?v=I9rxt821gMk&t=1s
+         );
+
         public Login()
         {
             InitializeComponent();
@@ -53,7 +54,7 @@ namespace KeyAuth
 
         private async void Login_Load(object sender, EventArgs e)
         {
-            KeyAuthApp.init();
+            await KeyAuthApp.init();
 
             #region Auto Update
             if (KeyAuthApp.response.message == "invalidver")
@@ -107,20 +108,20 @@ namespace KeyAuth
         
         private async void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            KeyAuthApp.forgot(usernameField.Text, emailField.Text);
+            await KeyAuthApp.forgot(usernameField.Text, emailField.Text);
             MessageBox.Show("Status: " + KeyAuthApp.response.message);
         }
 
         private async void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            KeyAuthApp.upgrade(usernameField.Text, keyField.Text); // success is set to false so people can't press upgrade then press login and skip logging in. it doesn't matter, since you shouldn't take any action on succesfull upgrade anyways. the only thing that needs to be done is the user needs to see the message from upgrade function
+            await KeyAuthApp.upgrade(usernameField.Text, keyField.Text); // success is set to false so people can't press upgrade then press login and skip logging in. it doesn't matter, since you shouldn't take any action on succesfull upgrade anyways. the only thing that needs to be done is the user needs to see the message from upgrade function
             MessageBox.Show("Status: " + KeyAuthApp.response.message);
             // don't login, because they haven't authenticated. this is just to extend expiry of user with new key.
         }
 
         private async void loginBtn_Click_1(object sender, EventArgs e)
         {
-             KeyAuthApp.login(usernameField.Text, passwordField.Text, tfaField.Text);
+            await KeyAuthApp.login(usernameField.Text, passwordField.Text, tfaField.Text);
             if (KeyAuthApp.response.success)
             {
                 Main main = new Main();
@@ -139,7 +140,7 @@ namespace KeyAuth
                 email = null;
             }
 
-             KeyAuthApp.register(usernameField.Text, passwordField.Text, keyField.Text, email);
+            await KeyAuthApp.register(usernameField.Text, passwordField.Text, keyField.Text, email);
             if (KeyAuthApp.response.success)
             {
                 Main main = new Main();
@@ -152,7 +153,7 @@ namespace KeyAuth
 
         private async void licenseBtn_Click(object sender, EventArgs e)
         {
-             KeyAuthApp.license(keyField.Text, tfaField.Text);
+            await KeyAuthApp.license(keyField.Text, tfaField.Text);
             if (KeyAuthApp.response.success)
             {
                 Main main = new Main();

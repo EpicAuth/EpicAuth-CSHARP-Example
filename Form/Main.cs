@@ -33,11 +33,11 @@ namespace KeyAuth
             userDataField.Items.Add($"Subscription: {Login.KeyAuthApp.user_data.subscriptions[0].subscription}");
             userDataField.Items.Add($"IP: {Login.KeyAuthApp.user_data.ip}");
             userDataField.Items.Add($"HWID: {Login.KeyAuthApp.user_data.hwid}");
-            userDataField.Items.Add($"Creation Date: {Login.KeyAuthApp.user_data.createdate}"); // this has a capital "C" , if you use a lowercase "c" it won't convert unix
-            userDataField.Items.Add($"Last Login: {Login.KeyAuthApp.user_data.lastlogin}"); // this has a capital "L", if you use a lowercase "l" it won't convert unix
+            userDataField.Items.Add($"Creation Date: {Login.KeyAuthApp.user_data.CreationDate}"); // this has a capital "C" , if you use a lowercase "c" it won't convert unix
+            userDataField.Items.Add($"Last Login: {Login.KeyAuthApp.user_data.LastLoginDate}"); // this has a capital "L", if you use a lowercase "l" it won't convert unix
             userDataField.Items.Add($"Time Left: {Login.KeyAuthApp.expirydaysleft()}");
 
-            var onlineUsers =  Login.KeyAuthApp.fetchOnline();
+            var onlineUsers = await Login.KeyAuthApp.fetchOnline();
             if (onlineUsers != null)
             {
                 Console.Write("\n Online users: ");
@@ -67,7 +67,7 @@ namespace KeyAuth
             timer1.Interval = 15000; // get chat messages every 15 seconds
             if (!String.IsNullOrEmpty(chatchannel))
             {
-                var messages =  Login.KeyAuthApp.chatget(chatchannel);
+                var messages = await Login.KeyAuthApp.chatget(chatchannel);
                 if (messages == null)
                 {
                     chatroomGrid.Rows.Insert(0, "KeyAuth", "No Chat Messages", api.UnixTimeToDateTime(DateTimeOffset.Now.ToUnixTimeSeconds()));
@@ -89,44 +89,44 @@ namespace KeyAuth
 
         private async void sendWebhookBtn_Click_1(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.webhook(webhookID.Text, webhookBaseURL.Text);
+            await Login.KeyAuthApp.webhook(webhookID.Text, webhookBaseURL.Text);
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
 
         private async void setUserVarBtn_Click_1(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.setvar(varField.Text, varDataField.Text);
+            await Login.KeyAuthApp.setvar(varField.Text, varDataField.Text);
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
 
         private async void fetchUserVarBtn_Click_1(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.getvar(varField.Text);
+            await Login.KeyAuthApp.getvar(varField.Text);
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
 
         private async void sendLogDataBtn_Click(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.log(logDataField.Text);
+            await Login.KeyAuthApp.log(logDataField.Text);
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
 
         private async void checkSessionBtn_Click_1(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.check();
+            await Login.KeyAuthApp.check();
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
 
         private async void fetchGlobalVariableBtn_Click_1(object sender, EventArgs e)
         {
-            string globalVal =  Login.KeyAuthApp.var(globalVariableField.Text);
+            string globalVal = await Login.KeyAuthApp.var(globalVariableField.Text);
             MessageBox.Show(globalVal);
             MessageBox.Show(Login.KeyAuthApp.response.message); // optional since it'll show the response in the var (if it's valid or not)
         }
 
         private async void sendMsgBtn_Click_1(object sender, EventArgs e)
         {
-            if ( Login.KeyAuthApp.chatsend(chatMsgField.Text, chatchannel))
+            if (await Login.KeyAuthApp.chatsend(chatMsgField.Text, chatchannel))
             {
                 chatroomGrid.Rows.Insert(0, Login.KeyAuthApp.user_data.username, chatMsgField.Text, api.UnixTimeToDateTime(DateTimeOffset.Now.ToUnixTimeSeconds()));
             }
@@ -138,7 +138,7 @@ namespace KeyAuth
 
         private async void closeBtn_Click(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.logout(); // ends the sessions once the application closes
+            await Login.KeyAuthApp.logout(); // ends the sessions once the application closes
             Environment.Exit(0);
         }
 
@@ -149,7 +149,7 @@ namespace KeyAuth
 
         private async void downloadFileBtn_Click(object sender, EventArgs e)
         {
-            byte[] result =  Login.KeyAuthApp.download("");
+            byte[] result = await Login.KeyAuthApp.download("");
             if (!Login.KeyAuthApp.response.success)
             {
                 Console.WriteLine("\n Status: " + Login.KeyAuthApp.response.message);
@@ -164,20 +164,20 @@ namespace KeyAuth
         {
             string code = string.IsNullOrEmpty(tfaField.Text) ? null : tfaField.Text;
 
-             Login.KeyAuthApp.enable2fa(code);
+            await Login.KeyAuthApp.enable2fa(code);
 
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
 
         private async void disableTfaBtn_Click(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.disable2fa(tfaField.Text);
+            await Login.KeyAuthApp.disable2fa(tfaField.Text);
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
 
         private async void banBtn_Click(object sender, EventArgs e)
         {
-             Login.KeyAuthApp.ban("Testing ban function");
+            await Login.KeyAuthApp.ban("Testing ban function");
             MessageBox.Show(Login.KeyAuthApp.response.message);
         }
     }

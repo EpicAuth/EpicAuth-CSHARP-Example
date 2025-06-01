@@ -1,8 +1,7 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
-using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -26,8 +25,8 @@ namespace KeyAuth
         public static api KeyAuthApp = new api(
             name: "", // Application Name
             ownerid: "", // Account ID
-            version: "", // Application version. Used for automatic downloads see video here https://www.youtube.com/watch?v=kW195PLCBKs
-            secret : ""                                                                         //path: @"Your_Path_Here" // (OPTIONAL) see tutorial here https://www.youtube.com/watch?v=I9rxt821gMk&t=1s
+            version: "" // Application version. Used for automatic downloads see video here https://www.youtube.com/watch?v=kW195PLCBKs
+                           //path: @"Your_Path_Here" // (OPTIONAL) see tutorial here https://www.youtube.com/watch?v=I9rxt821gMk&t=1s
         );
 
         [DllImport("kernel32.dll", SetLastError = true)]

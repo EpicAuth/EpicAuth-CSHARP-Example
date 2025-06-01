@@ -1,47 +1,67 @@
 using System;
-using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Collections.Specialized;
-using System.Diagnostics;
-using System.IO;
+using System.Text;
 using System.Net;
-using System.Net.Security;
+using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
+using System.Diagnostics;
 using System.Security.Principal;
-using System.Text;
+using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
+using System.Net.Security;
 using System.Threading;
+using Cryptographic;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using System.Threading.Tasks;
+using System.Net.Http;
+using System.Linq;
 using System.Windows;
 
 namespace KeyAuth
 {
     public class api
     {
-        public string name, ownerid, secret, version;
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GetCurrentProcess();
+
+        // Import the required Atom Table functions from kernel32.dll
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern ushort GlobalAddAtom(string lpString);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern ushort GlobalFindAtom(string lpString);
+
+        public string name, ownerid, version, path, seed;
         /// <summary>
         /// Set up your application credentials in order to use keyauth
         /// </summary>
         /// <param name="name">Application Name</param>
         /// <param name="ownerid">Your OwnerID, found in your account settings.</param>
-        /// <param name="secret">Application Secret</param>
         /// <param name="version">Application Version, if version doesnt match it will open the download link you set up in your application settings and close the app, if empty the app will close</param>
-        public api(string name, string ownerid, string secret, string version)
+        public api(string name, string ownerid, string version, string path = null)
         {
-            if (ownerid.Length != 10 || secret.Length != 64)
+            if (ownerid.Length != 10)
             {
-                error("Application not setup correctly. Please watch video link found in Program.cs");
-                Environment.Exit(0);
+                Process.Start("https://youtube.com/watch?v=RfDTdiBq4_o");
+                Process.Start("https://keyauth.cc/app/");
+                Thread.Sleep(2000);
+                error("Application not setup correctly. Please watch the YouTube video for setup.");
+                TerminateProcess(GetCurrentProcess(), 1);
             }
 
             this.name = name;
 
             this.ownerid = ownerid;
 
-            this.secret = secret;
-
             this.version = version;
+
+	        this.path = path;
         }
 
         #region structures
@@ -87,7 +107,6 @@ namespace KeyAuth
             [DataMember(Name = "2fa", IsRequired = false, EmitDefaultValue = false)] // Ensure mapping to "2fa"
             public TwoFactorData twoFactor { get; set; } // Add a property for the 2FA data
         }
-
 
         public class msg
         {
@@ -141,49 +160,104 @@ namespace KeyAuth
         /// <summary>
         /// Initializes the connection with keyauth in order to use any of the functions
         /// </summary>
-        public void init()
+        public async Task init()
         {
-            string sentKey = encryption.iv_key();
-            enckey = sentKey + "-" + secret;
+            Random random = new Random();
+
+            // Generate a random length for the string (let's assume between 5 and 50 characters)
+            int length = random.Next(5, 51); // Min length: 5, Max length: 50
+
+            StringBuilder sb = new StringBuilder(length);
+
+            // Define the range of printable ASCII characters (32-126)
+            for (int i = 0; i < length; i++)
+            {
+                // Generate a random printable ASCII character
+                char randomChar = (char)random.Next(32, 127); // ASCII 32 to 126
+                sb.Append(randomChar);
+            }
+
+            seed = sb.ToString();
+            checkAtom();
+
             var values_to_upload = new NameValueCollection
             {
                 ["type"] = "init",
                 ["ver"] = version,
                 ["hash"] = checksum(Process.GetCurrentProcess().MainModule.FileName),
-                ["enckey"] = sentKey,
                 ["name"] = name,
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+	       if (!string.IsNullOrEmpty(path))
+ 	       {
+                values_to_upload.Add("token", File.ReadAllText(path));
+                values_to_upload.Add("thash", TokenHash(path));
+           }
+
+            var response = await req(values_to_upload);
 
             if (response == "KeyAuth_Invalid")
             {
                 error("Application not found");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
             }
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
+            if (json.ownerid == ownerid)
             {
-                load_app_data(json.appinfo);
-                sessionid = json.sessionid;
-                initialized = true;
+                load_response_struct(json);
+                if (json.success)
+                {
+                    sessionid = json.sessionid;
+                    initialized = true;
+                }
+                else if (json.message == "invalidver")
+                {
+                    app_data.downloadLink = json.download;
+                }
             }
-            else if (json.message == "invalidver")
+            else
             {
-                app_data.downloadLink = json.download;
+                TerminateProcess(GetCurrentProcess(), 1);
             }
-
         }
 
+        #pragma warning disable IDE0052 
+        private System.Threading.Timer atomTimer;
+        #pragma warning restore IDE0052
+        void checkAtom()
+        {
+            atomTimer = new System.Threading.Timer(_ =>
+            {
+                ushort foundAtom = GlobalFindAtom(seed);
+                if (foundAtom == 0)
+                {
+                    TerminateProcess(GetCurrentProcess(), 1);
+                }
+            }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        }
+
+        public static string TokenHash(string tokenPath)
+        {
+             using (var sha256 = SHA256.Create())
+             {
+                using (var s = File.OpenRead(tokenPath))
+                {
+                     byte[] bytes = sha256.ComputeHash(s);
+                     return BitConverter.ToString(bytes).Replace("-", string.Empty);
+                }
+            }
+        } 
+        /// <summary>
+        /// Checks if Keyauth is been Initalized
+        /// </summary>
         public void CheckInit()
         {
             if (!initialized)
             {
                 error("You must run the function KeyAuthApp.init(); first");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
             }
         }
 
@@ -194,6 +268,7 @@ namespace KeyAuth
             TimeSpan difference = dtDateTime - DateTime.Now;
             return Convert.ToString(difference.Days + " Days " + difference.Hours + " Hours Left");
         }
+
         public static DateTime UnixTimeToDateTime(long unixtime)
         {
             System.DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Local);
@@ -207,31 +282,6 @@ namespace KeyAuth
             }
             return dtDateTime;
         }
-        public async Task logout()
-        {
-            CheckInit();
-
-            var values_to_upload = new NameValueCollection
-            {
-                ["type"] = "logout",
-                ["sessionid"] = sessionid,
-                ["name"] = name,
-                ["ownerid"] = ownerid
-            };
-
-            var response = req(values_to_upload);
-
-            var json = response_decoder.string_to_generic<response_structure>(response);
-            if (json.ownerid == ownerid)
-            {
-                load_response_struct(json);
-            }
-            else
-            {
-               // TerminateProcess(GetCurrentProcess(), 1);
-            }
-        }
-
 
         /// <summary>
         /// Registers the user using a license and gives the user a subscription that matches their license level
@@ -239,7 +289,7 @@ namespace KeyAuth
         /// <param name="username">Username</param>
         /// <param name="pass">Password</param>
         /// <param name="key">License key</param>
-        public void register(string username, string pass, string key, string email = "")
+        public async Task register(string username, string pass, string key, string email = "")
         {
             CheckInit();
 
@@ -258,19 +308,53 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
+
+            var json = response_decoder.string_to_generic<response_structure>(response);
+            if (json.ownerid == ownerid)
+            {
+                GlobalAddAtom(seed);
+                GlobalAddAtom(ownerid);
+
+                load_response_struct(json);
+                if (json.success)
+                    load_user_data(json.info);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
+        }
+        /// <summary>
+        /// Allow users to enter their account information and recieve an email to reset their password.
+        /// </summary>
+        /// <param name="username">Username</param>
+        /// <param name="email">Email address</param>
+        public async Task forgot(string username, string email)
+        {
+            CheckInit();
+
+            var values_to_upload = new NameValueCollection
+            {
+                ["type"] = "forgot",
+                ["username"] = username,
+                ["email"] = email,
+                ["sessionid"] = sessionid,
+                ["name"] = name,
+                ["ownerid"] = ownerid
+            };
+
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
             load_response_struct(json);
-            if (json.success)
-                load_user_data(json.info);
         }
         /// <summary>
         /// Authenticates the user using their username and password
         /// </summary>
         /// <param name="username">Username</param>
         /// <param name="pass">Password</param>
-        public void login(string username, string pass, string code = null)
+        public async Task login(string username, string pass, string code = null)
         {
             CheckInit();
 
@@ -285,18 +369,53 @@ namespace KeyAuth
                 ["sessionid"] = sessionid,
                 ["name"] = name,
                 ["ownerid"] = ownerid,
-                ["code"] = code ?? string.Empty
+                ["code"] = code ?? null
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
-                load_user_data(json.info);
+            if (json.ownerid == ownerid)
+            {
+                GlobalAddAtom(seed);
+                GlobalAddAtom(ownerid);
+
+                load_response_struct(json);
+                if (json.success)
+                    load_user_data(json.info);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
         }
 
-        public void web_login()
+	    public async Task logout()
+        {                                       
+            CheckInit();
+
+            var values_to_upload = new NameValueCollection
+            {
+                ["type"] = "logout",
+                ["sessionid"] = sessionid,
+                ["name"] = name,
+                ["ownerid"] = ownerid
+            };
+
+            var response = await req(values_to_upload);
+
+            var json = response_decoder.string_to_generic<response_structure>(response);
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
+        }
+
+        public async Task web_login()
         {
             CheckInit();
 
@@ -304,7 +423,7 @@ namespace KeyAuth
 
             string datastore, datastore2, outputten;
 
-        start:
+            start:
 
             HttpListener listener = new HttpListener();
 
@@ -359,29 +478,38 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-
             bool success = true;
-
-            if (json.success)
+            if (json.ownerid == ownerid)
             {
-                load_user_data(json.info);
+                GlobalAddAtom(seed);
+                GlobalAddAtom(ownerid);
 
-                responsepp.StatusCode = 420;
-                responsepp.StatusDescription = "SHEESH";
+                load_response_struct(json);
+
+                if (json.success)
+                {
+                    load_user_data(json.info);
+
+                    responsepp.StatusCode = 420;
+                    responsepp.StatusDescription = "SHEESH";
+                }
+                else
+                {
+                    Console.WriteLine(json.message);
+                    responsepp.StatusCode = (int)HttpStatusCode.OK;
+                    responsepp.StatusDescription = json.message;
+                    success = false;
+                }
             }
             else
             {
-                Console.WriteLine(json.message);
-                responsepp.StatusCode = (int)HttpStatusCode.OK;
-                responsepp.StatusDescription = json.message;
-                success = false;
+                TerminateProcess(GetCurrentProcess(), 1);
             }
 
-            byte[] buffer = Encoding.UTF8.GetBytes("Whats up?");
+            byte[] buffer = Encoding.UTF8.GetBytes("Complete");
 
             responsepp.ContentLength64 = buffer.Length;
             Stream output = responsepp.OutputStream;
@@ -390,7 +518,7 @@ namespace KeyAuth
             listener.Stop();
 
             if (!success)
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
 
         }
 
@@ -440,7 +568,7 @@ namespace KeyAuth
         /// </summary>
         /// <param name="username">Username of the user thats going to get upgraded</param>
         /// <param name="key">License with the same level as the subscription you want to give the user</param>
-        public void upgrade(string username, string key)
+        public async Task upgrade(string username, string key)
         {
             CheckInit();
 
@@ -454,18 +582,25 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            json.success = false;
-            load_response_struct(json);
+            if (json.ownerid == ownerid)
+            {
+                json.success = false;
+                load_response_struct(json);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
         }
 
         /// <summary>
         /// Authenticate without using usernames and passwords
         /// </summary>
         /// <param name="key">Licence used to login with</param>
-        public void license(string key, string code)
+        public async Task license(string key, string code = null)
         {
             CheckInit();
 
@@ -478,46 +613,32 @@ namespace KeyAuth
                 ["hwid"] = hwid,
                 ["sessionid"] = sessionid,
                 ["name"] = name,
-                ["ownerid"] = ownerid
+                ["ownerid"] = ownerid,
+                ["code"]  = code ?? null
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
-                load_user_data(json.info);
-        }
-        /// <summary>
-        /// Allow users to enter their account information and recieve an email to reset their password.
-        /// </summary>
-        /// <param name="username">Username</param>
-        /// <param name="email">Email address</param>
-        public void forgot(string username, string email)
-        {
-            CheckInit();
 
-            var values_to_upload = new NameValueCollection
+            if (json.ownerid == ownerid)
             {
-                ["type"] = "forgot",
-                ["username"] = username,
-                ["email"] = email,
-                ["sessionid"] = sessionid,
-                ["name"] = name,
-                ["ownerid"] = ownerid
-            };
+                GlobalAddAtom(seed);
+                GlobalAddAtom(ownerid);
 
-            var response = req(values_to_upload);
-
-            var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
+                load_response_struct(json);
+                if (json.success)
+                    load_user_data(json.info);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
         }
-
-
         /// <summary>
         /// Checks if the current session is validated or not
         /// </summary>
-        public void check()
+        public async Task check()
         {
             CheckInit();
 
@@ -529,17 +650,86 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
+
+            var json = response_decoder.string_to_generic<response_structure>(response);
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
+        }
+        /// <summary>
+        /// Disable two factor authentication (2fa)
+        /// </summary>
+        public async Task disable2fa(string code)
+        {
+            CheckInit();
+
+            var values_to_upload = new NameValueCollection
+            {
+                ["type"] = "2fadisable",
+                ["sessionid"] = sessionid,
+                ["name"] = name,
+                ["ownerid"] = ownerid,
+                ["code"] = code
+            };
+
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
             load_response_struct(json);
+        }
+        /// <summary>
+        /// Enable two factor authentication (2fa)
+        /// </summary>
+        public async Task enable2fa(string code = null)
+        {
+            CheckInit();
+
+            var values_to_upload = new NameValueCollection
+            {
+                ["type"] = "2faenable",
+                ["sessionid"] = sessionid,
+                ["name"] = name,
+                ["ownerid"] = ownerid,
+                ["code"] = code
+            };
+
+            var response = await req(values_to_upload);
+
+            var json = response_decoder.string_to_generic<response_structure>(response);
+            load_response_struct(json);
+
+            if (json.success)
+            {
+                if (code == null) // First time enabling 2FA, no code provided
+                {
+                    // Display the secret code to the user
+                    Clipboard.SetText(json.twoFactor.SecretCode);
+                    System.Windows.MessageBox.Show($"Your 2FA Secret Code has been copied to your clipboard! \n\n: {json.twoFactor.SecretCode}", "2FA Secret");
+
+                }
+                else // Code provided by the user
+                {
+                    System.Windows.MessageBox.Show("2FA has been successfully enabled!", "2FA Setup");
+                }
+            }
+            else
+            {
+                Thread.Sleep(3000);
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
         }
         /// <summary>
         /// Change the data of an existing user variable, *User must be logged in*
         /// </summary>
         /// <param name="var">User variable name</param>
         /// <param name="data">The content of the variable</param>
-        public void setvar(string var, string data)
+        public async Task setvar(string var, string data)
         {
             CheckInit();
 
@@ -553,17 +743,24 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
         }
         /// <summary>
         /// Gets the an existing user variable
         /// </summary>
         /// <param name="var">User Variable Name</param>
         /// <returns>The content of the user variable</returns>
-        public string getvar(string var)
+        public async Task<string> getvar(string var)
         {
             CheckInit();
 
@@ -576,18 +773,25 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
-                return json.response;
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+                if (json.success)
+                    return json.response;
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
             return null;
         }
         /// <summary>
         /// Bans the current logged in user
         /// </summary>
-        public void ban(string reason = null)
+        public async Task ban(string reason = null)
         {
             CheckInit();
 
@@ -600,17 +804,24 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
         }
         /// <summary>
         /// Gets an existing global variable
         /// </summary>
         /// <param name="varid">Variable ID</param>
         /// <returns>The content of the variable</returns>
-        public string var(string varid)
+        public async Task<string> var(string varid)
         {
             CheckInit();
 
@@ -623,19 +834,26 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
-                return json.message;
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+                if (json.success)
+                    return json.message;
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
             return null;
         }
         /// <summary>
         /// Fetch usernames of online users
         /// </summary>
         /// <returns>ArrayList of usernames</returns>
-        public List<users> fetchOnline()
+        public async Task<List<users>> fetchOnline()
         {
             CheckInit();
 
@@ -647,7 +865,7 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
             load_response_struct(json);
@@ -657,11 +875,34 @@ namespace KeyAuth
             return null;
         }
         /// <summary>
+        /// Fetch app statistic counts
+        /// </summary>
+        public async Task fetchStats()
+        {
+            CheckInit();
+
+            var values_to_upload = new NameValueCollection
+            {
+                ["type"] = "fetchStats",
+                ["sessionid"] = sessionid,
+                ["name"] = name,
+                ["ownerid"] = ownerid
+            };
+
+            var response = await req(values_to_upload);
+
+            var json = response_decoder.string_to_generic<response_structure>(response);
+            load_response_struct(json);
+
+            if (json.success)
+                load_app_data(json.appinfo);
+        }
+        /// <summary>
         /// Gets the last 50 sent messages of that channel
         /// </summary>
         /// <param name="channelname">The channel name</param>
         /// <returns>the last 50 sent messages of that channel</returns>
-        public List<msg> chatget(string channelname)
+        public async Task<List<msg>> chatget(string channelname)
         {
             CheckInit();
 
@@ -674,7 +915,7 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
             load_response_struct(json);
@@ -690,7 +931,7 @@ namespace KeyAuth
         /// <param name="msg">Message</param>
         /// <param name="channelname">Channel Name</param>
         /// <returns>If the message was sent successfully, it returns true if not false</returns>
-        public bool chatsend(string msg, string channelname)
+        public async Task<bool> chatsend(string msg, string channelname)
         {
             CheckInit();
 
@@ -704,7 +945,7 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
             load_response_struct(json);
@@ -716,7 +957,7 @@ namespace KeyAuth
         /// Checks if the current ip address/hwid is blacklisted
         /// </summary>
         /// <returns>If found blacklisted returns true if not false</returns>
-        public bool checkblack()
+        public async Task<bool> checkblack()
         {
             CheckInit();
             string hwid = WindowsIdentity.GetCurrent().User.Value;
@@ -730,13 +971,22 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
-                return true;
-            return false;
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+                if (json.success)
+                    return true;
+                else
+                    return false;
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
+            return true; // return yes blacklisted if the OwnerID is spoofed
         }
         /// <summary>
         /// Sends a request to a webhook that you've added in the dashboard in a safe way without it being showed for example a http debugger
@@ -746,7 +996,7 @@ namespace KeyAuth
         /// <param name="body">Body of the request, empty by default</param>
         /// <param name="conttype">Content type, empty by default</param>
         /// <returns>the webhook's response</returns>
-        public string webhook(string webid, string param, string body = "", string conttype = "")
+        public async Task<string> webhook(string webid, string param, string body = "", string conttype = "")
         {
             CheckInit();
 
@@ -762,12 +1012,19 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-            if (json.success)
-                return json.response;
+            if (json.ownerid == ownerid)
+            {
+                load_response_struct(json);
+                if (json.success)
+                    return json.response;
+            }
+            else
+            {
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
             return null;
         }
         /// <summary>
@@ -775,7 +1032,7 @@ namespace KeyAuth
         /// </summary>
         /// <param name="fileid">File ID</param>
         /// <returns>The bytes of the download file</returns>
-        public byte[] download(string fileid)
+        public async Task<byte[]> download(string fileid)
         {
             CheckInit();
 
@@ -789,7 +1046,7 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            var response = req(values_to_upload);
+            var response = await req(values_to_upload);
 
             var json = response_decoder.string_to_generic<response_structure>(response);
             load_response_struct(json);
@@ -797,81 +1054,11 @@ namespace KeyAuth
                 return encryption.str_to_byte_arr(json.contents);
             return null;
         }
-
-        /// <summary>
-        /// Disable two factor authentication (2fa)
-        /// </summary>
-        public void disable2fa(string code)
-        {
-            CheckInit();
-
-            var values_to_upload = new NameValueCollection
-            {
-                ["type"] = "2fadisable",
-                ["sessionid"] = sessionid,
-                ["name"] = name,
-                ["ownerid"] = ownerid,
-                ["code"] = code
-            };
-
-            var response = req(values_to_upload);
-
-            var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-
-            Console.WriteLine(json.message);
-        }
-        /// <summary>
-        /// Enable two factor authentication (2fa)
-        /// </summary>
-        public void enable2fa(string code = null)
-        {
-            CheckInit();
-
-            var values_to_upload = new NameValueCollection
-            {
-                ["type"] = "2faenable",
-                ["sessionid"] = sessionid,
-                ["name"] = name,
-                ["ownerid"] = ownerid,
-                ["code"] = code
-            };
-
-            var response = req(values_to_upload);
-
-            var json = response_decoder.string_to_generic<response_structure>(response);
-            load_response_struct(json);
-
-            if (json.success)
-            {
-                if (code == null)
-                {
-                    Console.WriteLine($"Your 2FA Secret is: {json.twoFactor.SecretCode}");
-
-                    Console.Write("Enter the 6 digit authentication code from your authentication app: ");
-                    string code6Digit = Console.ReadLine();
-                    this.enable2fa(code6Digit);
-                }
-                else
-                {
-                    Console.WriteLine("2FA has been successfully enabled!");
-                    Thread.Sleep(3000);
-
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Error: {json.message}");
-                Thread.Sleep(3000);
-                Environment.Exit(0);
-            }
-        }
-
         /// <summary>
         /// Logs the IP address,PC Name with a message, if a discord webhook is set up in the app settings, the log will get sent there and the dashboard if not set up it will only be in the dashboard
         /// </summary>
         /// <param name="message">Message</param>
-        public void log(string message)
+        public async Task log(string message)
         {
             CheckInit();
 
@@ -885,8 +1072,31 @@ namespace KeyAuth
                 ["ownerid"] = ownerid
             };
 
-            req(values_to_upload);
+            await req(values_to_upload);
         }
+        /// <summary>
+        /// Change the username of a user, *User must be logged in*
+        /// </summary>
+        /// <param username="username">New username.</param>
+        public async Task changeUsername(string username)
+        {
+            CheckInit();
+
+            var values_to_upload = new NameValueCollection
+            {
+                ["type"] = "changeUsername",
+                ["newUsername"] = username,
+                ["sessionid"] = sessionid,
+                ["name"] = name,
+                ["ownerid"] = ownerid
+            };
+
+            var response = await req(values_to_upload);
+
+            var json = response_decoder.string_to_generic<response_structure>(response);
+            load_response_struct(json);
+        }
+
         public static string checksum(string filename)
         {
             string result;
@@ -900,77 +1110,211 @@ namespace KeyAuth
             }
             return result;
         }
+
         public static void error(string message)
         {
-            Process.Start(new ProcessStartInfo("cmd.exe", $"/c start cmd /C \"color b && title Error && echo {message} && timeout /t 5\"")
+            string folder = @"Logs", file = Path.Combine(folder, "ErrorLogs.txt");
+
+            if (!Directory.Exists(folder))
             {
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            });
-            Environment.Exit(0);
+                Directory.CreateDirectory(folder);
+            }
+
+            if (!File.Exists(file))
+            {
+                using (FileStream stream = File.Create(file))
+                {
+                    File.AppendAllText(file, DateTime.Now + " > This is the start of your error logs file");
+                }
+            }
+
+            File.AppendAllText(file, DateTime.Now + $" > {message}" + Environment.NewLine);
+
+            System.Windows.MessageBox.Show(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Environment.Exit(1);
         }
-        private static string req(NameValueCollection post_data)
+
+        private static async Task<string> req(NameValueCollection post_data)
         {
             try
             {
-                using (WebClient client = new WebClient())
+                if (FileCheck("keyauth.win")) // change this url if you're using a custom domain
                 {
-                    client.Proxy = null;
+                    error("File manipulation detected. Terminating process.");
+                    Logger.LogEvent("File manipulation detected.");
+                    TerminateProcess(GetCurrentProcess(), 1);
+                    return "";
+                }
 
-                    ServicePointManager.ServerCertificateValidationCallback += assertSSL;
+                var formData = new List<KeyValuePair<string, string>>();
+                foreach (string key in post_data)
+                {
+                    formData.Add(new KeyValuePair<string, string>(key, post_data[key]));
+                }
+                var content = new FormUrlEncodedContent(formData);
 
-                    var raw_response = client.UploadValues("https://keyauth.site/api/1.2/", post_data);
+                var handler = new HttpClientHandler
+                {
+                    Proxy = null,
+                    ServerCertificateCustomValidationCallback = (request, certificate, chain, sslPolicyErrors) =>
+                    {
+                        return assertSSL(request, certificate, chain, sslPolicyErrors);
+                    }
+                };
 
-                    sigCheck(Encoding.Default.GetString(raw_response), client.ResponseHeaders["signature"], post_data.Get(0));
+                using (var client = new HttpClient(handler))
+                {
+                    client.Timeout = TimeSpan.FromSeconds(20);
 
-                    return Encoding.Default.GetString(raw_response);
+                    HttpResponseMessage response = await client.PostAsync("https://keyauth.site/api/1.3/", content); // change this url if you're using a custom domain
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        switch (response.StatusCode)
+                        {
+                            case (HttpStatusCode)429: // Rate Limited
+                                error("You're connecting too faster to loader, slow down");
+                                Logger.LogEvent("You're connecting too faster to loader, slow down");
+                                TerminateProcess(GetCurrentProcess(), 1);
+                                break;
+                            default:
+                                error("Connection failure. Please try again, or contact us for help.");
+                                Logger.LogEvent("Connection failure. Please try again, or contact us for help.");
+                                TerminateProcess(GetCurrentProcess(), 1);
+                                break;
+                        }
+                        return "";
+                    }
+
+                    string raw_response = await response.Content.ReadAsStringAsync();
+
+                    var headers = new WebHeaderCollection();
+                    if (response.Headers.TryGetValues("x-signature-ed25519", out IEnumerable<string> signatureValues))
+                        headers["x-signature-ed25519"] = signatureValues.FirstOrDefault();
+
+                    if (response.Headers.TryGetValues("x-signature-timestamp", out IEnumerable<string> timeStampValues))
+                        headers["x-signature-timestamp"] = timeStampValues.FirstOrDefault();
+
+                    sigCheck(raw_response, headers, post_data.Get(0));
+
+                    Logger.LogEvent(raw_response + "\n");
+
+                    return raw_response;
                 }
             }
-            catch (WebException webex)
+            catch (Exception ex)
             {
-                var response = (HttpWebResponse)webex.Response;
-                switch (response.StatusCode)
-                {
-                    case (HttpStatusCode)429: // client hit our rate limit
-                        error("You're connecting too fast to loader, slow down.");
-                        Environment.Exit(0);
-                        return "";
-                    default: // site won't resolve. you should use keyauth.uk domain since it's not blocked by any ISPs
-                        error("Connection failure. Please try again, or contact us for help.");
-                        Environment.Exit(0);
-                        return "";
-                }
+                error("Connection failure. Please try again, or contact us for help. Exception: " + ex.Message);
+                Logger.LogEvent("Connection failure. Please try again, or contact us for help. Exception: " + ex.Message);
+                TerminateProcess(GetCurrentProcess(), 1);
+                return "";
             }
         }
 
-        private static bool assertSSL(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        private static bool FileCheck(string domain)
         {
+            try
+            {
+                var address = Dns.GetHostAddresses(domain);
+                foreach (var addr in address)
+                {
+                    if (IPAddress.IsLoopback(addr) || IsPrivateIP(addr))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                return true;
+
+            }
+        }
+
+        private static bool IsPrivateIP(IPAddress ip)
+        {
+            byte[] bytes = ip.GetAddressBytes();
+            // 10.0.0.0/8
+            if (bytes[0] == 10)
+                return true;
+            // 172.16.0.0/12
+            if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] < 32)
+                return true;
+            // 192.168.0.0/16
+            if (bytes[0] == 192 && bytes[1] == 168)
+                return true;
+            return false;
+        }
+
+        private static bool assertSSL(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        { 
             if ((!certificate.Issuer.Contains("Google Trust Services") && !certificate.Issuer.Contains("Let's Encrypt")) || sslPolicyErrors != SslPolicyErrors.None)
             {
                 error("SSL assertion fail, make sure you're not debugging Network. Disable internet firewall on router if possible. & echo: & echo If not, ask the developer of the program to use custom domains to fix this.");
-                //  Logger.LogEvent("SSL assertion fail, make sure you're not debugging Network. Disable internet firewall on router if possible. If not, ask the developer of the program to use custom domains to fix this.");
+                Logger.LogEvent("SSL assertion fail, make sure you're not debugging Network. Disable internet firewall on router if possible. If not, ask the developer of the program to use custom domains to fix this.");
                 return false;
             }
             return true;
         }
 
-        private static void sigCheck(string resp, string signature, string type)
+        private static void sigCheck(string resp, WebHeaderCollection headers, string type)
         {
+            if(type == "log" || type == "file" || type == "2faenable" || type == "2fadisable") // log doesn't return a response.
+            {
+                return;
+            }
+
             try
             {
-                string clientComputed = encryption.HashHMAC((type == "init") ? enckey.Substring(17, 64) : enckey, resp);
-                if (clientComputed != signature)
+                string signature = headers["x-signature-ed25519"];
+                string timestamp = headers["x-signature-timestamp"];
+
+                // Try to parse the input string to a long Unix timestamp
+                if (!long.TryParse(timestamp, out long unixTimestamp))
                 {
-                    error("Signaure check fail. Try to run the program again, your session may have expired.");
-                    Environment.Exit(0);
+                    error("Failed to parse the timestamp from the server. Please ensure your device's date and time settings are correct.");
+                    TerminateProcess(GetCurrentProcess(), 1);
+                }
+
+                // Convert the Unix timestamp to a DateTime object (in UTC)
+                DateTime timestampTime = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp).UtcDateTime;
+
+                // Get the current UTC time
+                DateTime currentTime = DateTime.UtcNow;
+
+                // Calculate the difference between the current time and the timestamp
+                TimeSpan timeDifference = currentTime - timestampTime;
+
+                // Check if the timestamp is within 20 seconds of the current time
+                if (timeDifference.TotalSeconds > 20)
+                {
+                    error("Date/Time settings aren't synced on your device, please sync them to use the program");
+                    TerminateProcess(GetCurrentProcess(), 1);
+                }
+
+                var byteSig = encryption.str_to_byte_arr(signature);
+                var byteKey = encryption.str_to_byte_arr("95b38710f40927b16528a073b87d942e03bd4578d49963a19ebae177945f89ac");
+                // ... read the body from the request ...
+                // ... add the timestamp and convert it to a byte[] ...
+                string body = timestamp + resp;
+                var byteBody = Encoding.Default.GetBytes(body);
+
+                Console.Write(" Authenticating"); // there's also ... dots being created inside the CheckValid() function BELOW
+
+                bool signatureValid = Ed25519.CheckValid(byteSig, byteBody, byteKey); // the ... dots in the console are from this function!
+                if (!signatureValid)
+                {
+                    error("Signature checksum failed. Request was tampered with or session ended most likely. & echo: & echo Response: " + resp);
+                    Logger.LogEvent(resp + "\n");
+                    TerminateProcess(GetCurrentProcess(), 1);
                 }
             }
             catch
             {
-                error("Signaure check fail. Try to run the program again, your session may have expired.");
-                Environment.Exit(0);
+                error("Signature checksum failed. Request was tampered with or session ended most likely. & echo: & echo Response: " + resp);
+                Logger.LogEvent(resp + "\n");
+                TerminateProcess(GetCurrentProcess(), 1);
             }
         }
 
@@ -1008,6 +1352,9 @@ namespace KeyAuth
             public string createdate { get; set; }
             public string lastlogin { get; set; }
             public List<Data> subscriptions { get; set; } // array of subscriptions (basically multiple user ranks for user with individual expiry dates
+
+            public DateTime CreationDate => KeyAuth.api.UnixTimeToDateTime(long.Parse(createdate));
+            public DateTime LastLoginDate => KeyAuth.api.UnixTimeToDateTime(long.Parse(lastlogin));
         }
         public class Data
         {
@@ -1036,8 +1383,6 @@ namespace KeyAuth
         }
         #endregion
 
-
-
         [DataContract]
         private class TwoFactorData
         {
@@ -1047,7 +1392,6 @@ namespace KeyAuth
             [DataMember(Name = "QRCode")]
             public string QRCode { get; set; }
         }
-
 
         #region response_struct
         public response_class response = new response_class();
@@ -1068,12 +1412,72 @@ namespace KeyAuth
         private json_wrapper response_decoder = new json_wrapper(new response_structure());
     }
 
+    public static class Logger
+    {
+        public static bool IsLoggingEnabled { get; set; } = false; // Disabled by default
+        public static void LogEvent(string content)
+        {
+            if (!IsLoggingEnabled)
+            {
+                //Console.WriteLine("Debug mode disabled."); // Optional: Message when logging is disabled
+                return; // Exit the method if logging is disabled
+            }
+
+            string exeName = Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location);
+
+            string logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "KeyAuth", "debug", exeName);
+            if (!Directory.Exists(logDirectory))
+            {
+                Directory.CreateDirectory(logDirectory);
+            }
+
+            string logFileName = $"{DateTime.Now:MMM_dd_yyyy}_logs.txt";
+            string logFilePath = Path.Combine(logDirectory, logFileName);
+
+            try
+            {
+                // Redact sensitive fields - Add more if you would like. 
+                content = RedactField(content, "sessionid");
+                content = RedactField(content, "ownerid");
+                content = RedactField(content, "app");
+                content = RedactField(content, "version");
+                content = RedactField(content, "fileid");
+                content = RedactField(content, "webhooks");
+                content = RedactField(content, "nonce");
+
+                using (StreamWriter writer = File.AppendText(logFilePath))
+                {
+                    writer.WriteLine($"[{DateTime.Now}] [{AppDomain.CurrentDomain.FriendlyName}] {content}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error logging data: {ex.Message}");
+            }
+        }
+
+        private static string RedactField(string content, string fieldName)
+        {
+            // Basic pattern matching to replace values of sensitive fields
+            string pattern = $"\"{fieldName}\":\"[^\"]*\"";
+            string replacement = $"\"{fieldName}\":\"REDACTED\"";
+
+            return System.Text.RegularExpressions.Regex.Replace(content, pattern, replacement);
+        }
+    }
+
     public static class encryption
     {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GetCurrentProcess();
+
         public static string HashHMAC(string enckey, string resp)
         {
-            byte[] key = Encoding.ASCII.GetBytes(enckey);
-            byte[] message = Encoding.ASCII.GetBytes(resp);
+            byte[] key = Encoding.UTF8.GetBytes(enckey);
+            byte[] message = Encoding.UTF8.GetBytes(resp);
             var hash = new HMACSHA256(key);
             return byte_arr_to_str(hash.ComputeHash(message));
         }
@@ -1099,7 +1503,7 @@ namespace KeyAuth
             catch
             {
                 api.error("The session has ended, open program again.");
-                Environment.Exit(0);
+                TerminateProcess(GetCurrentProcess(), 1);
                 return null;
             }
         }
@@ -1142,6 +1546,4 @@ namespace KeyAuth
 
         private object current_object;
     }
-
-
 }
