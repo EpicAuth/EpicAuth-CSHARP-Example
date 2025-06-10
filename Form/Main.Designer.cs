@@ -1,4 +1,4 @@
-namespace KeyAuth
+namespace EpicAuth
 {
     public partial class Main : global::System.Windows.Forms.Form
     {
@@ -78,7 +78,7 @@ namespace KeyAuth
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(190, 19);
             this.label2.TabIndex = 27;
-            this.label2.Text = "KeyAuth Official C# Example";
+            this.label2.Text = "EpicAuth Official C# Example";
             // 
             // timer1
             // 

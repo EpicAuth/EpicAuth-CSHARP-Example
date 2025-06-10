@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Windows.Forms;
 
-namespace KeyAuth
+namespace EpicAuth
 {
     public partial class Login : Form
     {
@@ -13,11 +13,11 @@ namespace KeyAuth
         * 
         * WATCH THIS VIDEO TO SETUP APPLICATION: https://youtube.com/watch?v=RfDTdiBq4_o
         * 
-		 * READ HERE TO LEARN ABOUT KEYAUTH FUNCTIONS https://github.com/KeyAuth/KeyAuth-CSHARP-Example#keyauthapp-instance-definition
+		 * READ HERE TO LEARN ABOUT EpicAuth FUNCTIONS https://github.com/EpicAuth/EpicAuth-CSHARP-Example#EpicAuthapp-instance-definition
 		 *
         */
 
-        public static api KeyAuthApp = new api(
+        public static api EpicAuthApp = new api(
              name: "", // App name
              ownerid: "", // Account ID
              version: "1" // Application version. Used for automatic downloads see video here https://www.youtube.com/watch?v=kW195PLCBKs
@@ -33,7 +33,7 @@ namespace KeyAuth
         #region Misc References
         public static bool SubExist(string name)
         {
-            if(KeyAuthApp.user_data.subscriptions.Exists(x => x.subscription == name))
+            if(EpicAuthApp.user_data.subscriptions.Exists(x => x.subscription == name))
                 return true;
             return false;
         }
@@ -54,18 +54,18 @@ namespace KeyAuth
 
         private async void Login_Load(object sender, EventArgs e)
         {
-            await KeyAuthApp.init();
+            await EpicAuthApp.init();
 
             #region Auto Update
-            if (KeyAuthApp.response.message == "invalidver")
+            if (EpicAuthApp.response.message == "invalidver")
             {
-                if (!string.IsNullOrEmpty(KeyAuthApp.app_data.downloadLink))
+                if (!string.IsNullOrEmpty(EpicAuthApp.app_data.downloadLink))
                 {
                     DialogResult dialogResult = MessageBox.Show("Yes to open file in browser\nNo to download file automatically", "Auto update", MessageBoxButtons.YesNo);
                     switch (dialogResult)
                     {
                         case DialogResult.Yes:
-                            Process.Start(KeyAuthApp.app_data.downloadLink);
+                            Process.Start(EpicAuthApp.app_data.downloadLink);
                             Environment.Exit(0);
                             break;
                         case DialogResult.No:
@@ -75,7 +75,7 @@ namespace KeyAuth
                             string rand = random_string();
 
                             destFile = destFile.Replace(".exe", $"-{rand}.exe");
-                            webClient.DownloadFile(KeyAuthApp.app_data.downloadLink, destFile);
+                            webClient.DownloadFile(EpicAuthApp.app_data.downloadLink, destFile);
 
                             Process.Start(destFile);
                             Process.Start(new ProcessStartInfo()
@@ -99,37 +99,37 @@ namespace KeyAuth
             }
             #endregion
 
-	     if (!KeyAuthApp.response.success)
+	     if (!EpicAuthApp.response.success)
 	     {
-	        MessageBox.Show(KeyAuthApp.response.message);
+	        MessageBox.Show(EpicAuthApp.response.message);
 	        Environment.Exit(0);
 	     }
         }
         
         private async void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            await KeyAuthApp.forgot(usernameField.Text, emailField.Text);
-            MessageBox.Show("Status: " + KeyAuthApp.response.message);
+            await EpicAuthApp.forgot(usernameField.Text, emailField.Text);
+            MessageBox.Show("Status: " + EpicAuthApp.response.message);
         }
 
         private async void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            await KeyAuthApp.upgrade(usernameField.Text, keyField.Text); // success is set to false so people can't press upgrade then press login and skip logging in. it doesn't matter, since you shouldn't take any action on succesfull upgrade anyways. the only thing that needs to be done is the user needs to see the message from upgrade function
-            MessageBox.Show("Status: " + KeyAuthApp.response.message);
+            await EpicAuthApp.upgrade(usernameField.Text, keyField.Text); // success is set to false so people can't press upgrade then press login and skip logging in. it doesn't matter, since you shouldn't take any action on succesfull upgrade anyways. the only thing that needs to be done is the user needs to see the message from upgrade function
+            MessageBox.Show("Status: " + EpicAuthApp.response.message);
             // don't login, because they haven't authenticated. this is just to extend expiry of user with new key.
         }
 
         private async void loginBtn_Click_1(object sender, EventArgs e)
         {
-            await KeyAuthApp.login(usernameField.Text, passwordField.Text, tfaField.Text);
-            if (KeyAuthApp.response.success)
+            await EpicAuthApp.login(usernameField.Text, passwordField.Text, tfaField.Text);
+            if (EpicAuthApp.response.success)
             {
                 Main main = new Main();
                 main.Show();
                 this.Hide();
             }
             else
-                MessageBox.Show("Status: " + KeyAuthApp.response.message);
+                MessageBox.Show("Status: " + EpicAuthApp.response.message);
         }
 
         private async void registerBtn_Click(object sender, EventArgs e)
@@ -140,28 +140,28 @@ namespace KeyAuth
                 email = null;
             }
 
-            await KeyAuthApp.register(usernameField.Text, passwordField.Text, keyField.Text, email);
-            if (KeyAuthApp.response.success)
+            await EpicAuthApp.register(usernameField.Text, passwordField.Text, keyField.Text, email);
+            if (EpicAuthApp.response.success)
             {
                 Main main = new Main();
                 main.Show();
                 this.Hide();
             }
             else
-                MessageBox.Show("Status: " + KeyAuthApp.response.message);
+                MessageBox.Show("Status: " + EpicAuthApp.response.message);
         }
 
         private async void licenseBtn_Click(object sender, EventArgs e)
         {
-            await KeyAuthApp.license(keyField.Text, tfaField.Text);
-            if (KeyAuthApp.response.success)
+            await EpicAuthApp.license(keyField.Text, tfaField.Text);
+            if (EpicAuthApp.response.success)
             {
                 Main main = new Main();
                 main.Show();
                 this.Hide();
             }
             else
-               MessageBox.Show("Status: " + KeyAuthApp.response.message);
+               MessageBox.Show("Status: " + EpicAuthApp.response.message);
         }
 
         private void closeBtn_Click(object sender, EventArgs e)

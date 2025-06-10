@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace KeyAuth
+namespace EpicAuth
 {
     class Program
     {
@@ -18,11 +18,11 @@ namespace KeyAuth
         * 
         * WATCH THIS VIDEO TO SETUP APPLICATION: https://youtube.com/watch?v=RfDTdiBq4_o
         * 
-        * READ HERE TO LEARN ABOUT KEYAUTH FUNCTIONS https://github.com/KeyAuth/KeyAuth-CSHARP-Example#keyauthapp-instance-definition
+        * READ HERE TO LEARN ABOUT EpicAuth FUNCTIONS https://github.com/EpicAuth/EpicAuth-CSHARP-Example#EpicAuthapp-instance-definition
         *
         */
 
-        public static api KeyAuthApp = new api(
+        public static api EpicAuthApp = new api(
             name: "", // Application Name
             ownerid: "", // Account ID
             version: "" // Application version. Used for automatic downloads see video here https://www.youtube.com/watch?v=kW195PLCBKs
@@ -45,13 +45,13 @@ namespace KeyAuth
 
             Console.Title = "Loader";
             Console.WriteLine("\n\n Connecting..");
-            KeyAuthApp.init();
+            EpicAuthApp.init();
 
             autoUpdate();
 
-            if (!KeyAuthApp.response.success)
+            if (!EpicAuthApp.response.success)
             {
-                Console.WriteLine("\n Status: " + KeyAuthApp.response.message);
+                Console.WriteLine("\n Status: " + EpicAuthApp.response.message);
                 Thread.Sleep(1500);
                 TerminateProcess(GetCurrentProcess(), 1);
             }
@@ -70,7 +70,7 @@ namespace KeyAuth
                     password = Console.ReadLine();
                     Console.Write("\n\n Enter 2fa code: (not using 2fa? Just press enter) ");
                     code = Console.ReadLine();
-                    KeyAuthApp.login(username, password, code);
+                    EpicAuthApp.login(username, password, code);
                     break;
                 case 2:
                     Console.Write("\n\n Enter username: ");
@@ -81,16 +81,16 @@ namespace KeyAuth
                     key = Console.ReadLine();
                     Console.Write("\n\n Enter email (just press enter if none): ");
                     email = Console.ReadLine();
-                    KeyAuthApp.register(username, password, key, email);
+                    EpicAuthApp.register(username, password, key, email);
                     break;
                 case 3:
                     Console.Write("\n\n Enter username: ");
                     username = Console.ReadLine();
                     Console.Write("\n\n Enter license: ");
                     key = Console.ReadLine();
-                    KeyAuthApp.upgrade(username, key);
+                    EpicAuthApp.upgrade(username, key);
                     // don't proceed to app, user hasn't authenticated yet.
-                    Console.WriteLine("\n Status: " + KeyAuthApp.response.message);
+                    Console.WriteLine("\n Status: " + EpicAuthApp.response.message);
                     Thread.Sleep(2500);
                     TerminateProcess(GetCurrentProcess(), 1);
                     break;
@@ -99,16 +99,16 @@ namespace KeyAuth
                     key = Console.ReadLine();
                     Console.Write("\n\n Enter 2fa code: (not using 2fa? Just press enter");
                     code = Console.ReadLine();
-                    KeyAuthApp.license(key, code);
+                    EpicAuthApp.license(key, code);
                     break;
                 case 5:
                     Console.Write("\n\n Enter username: ");
                     username = Console.ReadLine();
                     Console.Write("\n\n Enter email: ");
                     email = Console.ReadLine();
-                    KeyAuthApp.forgot(username, email);
+                    EpicAuthApp.forgot(username, email);
                     // don't proceed to app, user hasn't authenticated yet.
-                    Console.WriteLine("\n Status: " + KeyAuthApp.response.message);
+                    Console.WriteLine("\n Status: " + EpicAuthApp.response.message);
                     Thread.Sleep(2500);
                     TerminateProcess(GetCurrentProcess(), 1);
                     break;
@@ -119,30 +119,30 @@ namespace KeyAuth
                     break; // no point in this other than to not get error from IDE
             }
 
-            if (!KeyAuthApp.response.success)
+            if (!EpicAuthApp.response.success)
             {
-                Console.WriteLine("\n Status: " + KeyAuthApp.response.message);
+                Console.WriteLine("\n Status: " + EpicAuthApp.response.message);
                 Thread.Sleep(2500);
                 TerminateProcess(GetCurrentProcess(), 1);
             }
 
             Console.WriteLine("\n Logged In!"); // at this point, the client has been authenticated. Put the code you want to run after here
 
-            if(string.IsNullOrEmpty(KeyAuthApp.response.message)) TerminateProcess(GetCurrentProcess(), 1);
+            if(string.IsNullOrEmpty(EpicAuthApp.response.message)) TerminateProcess(GetCurrentProcess(), 1);
 
             // user data
             Console.WriteLine("\n User data:");
-            Console.WriteLine(" Username: " + KeyAuthApp.user_data.username);
-            Console.WriteLine(" License: " + KeyAuthApp.user_data.subscriptions[0].key); // this can be used if the user used a license, username, and password for register. It'll display the license assigned to the user
-            Console.WriteLine(" IP address: " + KeyAuthApp.user_data.ip);
-            Console.WriteLine(" Hardware-Id: " + KeyAuthApp.user_data.hwid);
-            Console.WriteLine(" Created at: " + UnixTimeToDateTime(long.Parse(KeyAuthApp.user_data.createdate)));
-            if (!string.IsNullOrEmpty(KeyAuthApp.user_data.lastlogin)) // don't show last login on register since there is no last login at that point
-                Console.WriteLine(" Last login at: " + UnixTimeToDateTime(long.Parse(KeyAuthApp.user_data.lastlogin)));
+            Console.WriteLine(" Username: " + EpicAuthApp.user_data.username);
+            Console.WriteLine(" License: " + EpicAuthApp.user_data.subscriptions[0].key); // this can be used if the user used a license, username, and password for register. It'll display the license assigned to the user
+            Console.WriteLine(" IP address: " + EpicAuthApp.user_data.ip);
+            Console.WriteLine(" Hardware-Id: " + EpicAuthApp.user_data.hwid);
+            Console.WriteLine(" Created at: " + UnixTimeToDateTime(long.Parse(EpicAuthApp.user_data.createdate)));
+            if (!string.IsNullOrEmpty(EpicAuthApp.user_data.lastlogin)) // don't show last login on register since there is no last login at that point
+                Console.WriteLine(" Last login at: " + UnixTimeToDateTime(long.Parse(EpicAuthApp.user_data.lastlogin)));
             Console.WriteLine(" Your subscription(s):");
-            for (var i = 0; i < KeyAuthApp.user_data.subscriptions.Count; i++)
+            for (var i = 0; i < EpicAuthApp.user_data.subscriptions.Count; i++)
             {
-                Console.WriteLine(" Subscription name: " + KeyAuthApp.user_data.subscriptions[i].subscription + " - Expires at: " + UnixTimeToDateTime(long.Parse(KeyAuthApp.user_data.subscriptions[i].expiry)) + " - Time left in seconds: " + KeyAuthApp.user_data.subscriptions[i].timeleft);
+                Console.WriteLine(" Subscription name: " + EpicAuthApp.user_data.subscriptions[i].subscription + " - Expires at: " + UnixTimeToDateTime(long.Parse(EpicAuthApp.user_data.subscriptions[i].expiry)) + " - Time left in seconds: " + EpicAuthApp.user_data.subscriptions[i].timeleft);
             }
 
             Console.Write("\n [1] Enable 2FA\n [2] Disable 2FA\n Choose option: ");
@@ -150,12 +150,12 @@ namespace KeyAuth
             switch (tfaOptions)
             {
                 case 1:
-                    KeyAuthApp.enable2fa();
+                    EpicAuthApp.enable2fa();
                     break;
                 case 2:
                     Console.Write("Enter your 6 digit authorization code: ");
                     code = Console.ReadLine();
-                    KeyAuthApp.disable2fa(code);
+                    EpicAuthApp.disable2fa(code);
                     break;
                 default:
                     Console.WriteLine("\n\n Invalid Selection");
@@ -171,7 +171,7 @@ namespace KeyAuth
 
         public static bool SubExist(string name)
         {
-            if(KeyAuthApp.user_data.subscriptions.Exists(x => x.subscription == name))
+            if(EpicAuthApp.user_data.subscriptions.Exists(x => x.subscription == name))
                 return true;
             return false;
         }
@@ -198,7 +198,7 @@ namespace KeyAuth
                 {
                     Thread.Sleep(60000); // give people 1 minute to login
 
-                    ushort foundAtom = GlobalFindAtom(KeyAuthApp.ownerid);
+                    ushort foundAtom = GlobalFindAtom(EpicAuthApp.ownerid);
                     if (foundAtom == 0)
                     {
                         TerminateProcess(GetCurrentProcess(), 1);
@@ -238,9 +238,9 @@ namespace KeyAuth
 
         static void autoUpdate()
         {
-            if (KeyAuthApp.response.message == "invalidver")
+            if (EpicAuthApp.response.message == "invalidver")
             {
-                if (!string.IsNullOrEmpty(KeyAuthApp.app_data.downloadLink))
+                if (!string.IsNullOrEmpty(EpicAuthApp.app_data.downloadLink))
                 {
                     Console.WriteLine("\n Auto update avaliable!");
                     Console.WriteLine(" Choose how you'd like to auto update:");
@@ -250,7 +250,7 @@ namespace KeyAuth
                     switch (choice)
                     {
                         case 1:
-                            Process.Start(KeyAuthApp.app_data.downloadLink);
+                            Process.Start(EpicAuthApp.app_data.downloadLink);
                             Environment.Exit(0);
                             break;
                         case 2:
@@ -263,7 +263,7 @@ namespace KeyAuth
                             string rand = random_string();
 
                             destFile = destFile.Replace(".exe", $"-{rand}.exe");
-                            webClient.DownloadFile(KeyAuthApp.app_data.downloadLink, destFile);
+                            webClient.DownloadFile(EpicAuthApp.app_data.downloadLink, destFile);
 
                             Process.Start(destFile);
                             Process.Start(new ProcessStartInfo()

@@ -50,7 +50,7 @@
   <ItemGroup>
     <Compile Include="Drag.cs" />
     <Compile Include="Ed25519.cs" />
-    <Compile Include="KeyAuth.cs" />
+    <Compile Include="EpicAuth.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
     </Compile>

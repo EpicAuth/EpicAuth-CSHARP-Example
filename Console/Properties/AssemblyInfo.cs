@@ -7,12 +7,12 @@ using System;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Loader")]
-[assembly: AssemblyDescription("KeyAuth Loader Example")]
+[assembly: AssemblyDescription("EpicAuth Loader Example")]
 [assembly: AssemblyConfiguration("retail")]
-[assembly: AssemblyCompany("KeyAuth LLC")]
+[assembly: AssemblyCompany("EpicAuth LLC")]
 [assembly: AssemblyProduct("Loader")]
-[assembly: AssemblyCopyright("Copyright © KeyAuth.cc")]
-[assembly: AssemblyTrademark("KeyAuth")]
+[assembly: AssemblyCopyright("Copyright © EpicAuth.cc")]
+[assembly: AssemblyTrademark("EpicAuth")]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible

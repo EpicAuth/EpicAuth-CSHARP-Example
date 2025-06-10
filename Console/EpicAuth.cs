@@ -15,7 +15,7 @@ using System.Threading;
 using Cryptographic;
 using System.Runtime.InteropServices;
 
-namespace KeyAuth
+namespace EpicAuth
 {
     public class api
     {
@@ -34,7 +34,7 @@ namespace KeyAuth
 
         public string name, ownerid, version, path, seed;
         /// <summary>
-        /// Set up your application credentials in order to use keyauth
+        /// Set up your application credentials in order to use EpicAuth
         /// </summary>
         /// <param name="name">Application Name</param>
         /// <param name="ownerid">Your OwnerID, found in your account settings.</param>
@@ -44,7 +44,7 @@ namespace KeyAuth
             if (ownerid.Length != 10)
             {
                 Process.Start("https://youtube.com/watch?v=RfDTdiBq4_o");
-                Process.Start("https://keyauth.cc/app/");
+                Process.Start("https://EpicAuth.cc/app/");
                 Thread.Sleep(2000);
                 error("Application not setup correctly. Please watch the YouTube video for setup.");
                 TerminateProcess(GetCurrentProcess(), 1);
@@ -153,7 +153,7 @@ namespace KeyAuth
         private static string sessionid, enckey;
         bool initialized;
         /// <summary>
-        /// Initializes the connection with keyauth in order to use any of the functions
+        /// Initializes the connection with EpicAuth in order to use any of the functions
         /// </summary>
         public void init()
         {
@@ -192,7 +192,7 @@ namespace KeyAuth
 
             var response = req(values_to_upload);
 
-            if (response == "KeyAuth_Invalid")
+            if (response == "EpicAuth_Invalid")
             {
                 error("Application not found");
                 TerminateProcess(GetCurrentProcess(), 1);
@@ -250,13 +250,13 @@ namespace KeyAuth
             }
         } 
         /// <summary>
-        /// Checks if Keyauth is been Initalized
+        /// Checks if EpicAuth is been Initalized
         /// </summary>
         public void CheckInit()
         {
             if (!initialized)
             {
-                error("You must run the function KeyAuthApp.init(); first");
+                error("You must run the function EpicAuthApp.init(); first");
                 TerminateProcess(GetCurrentProcess(), 1);
             }
         }
@@ -526,7 +526,7 @@ namespace KeyAuth
         }
 
         /// <summary>
-        /// Use Buttons from KeyAuth Customer Panel
+        /// Use Buttons from EpicAuth Customer Panel
         /// </summary>
         /// <param name="button">Button Name</param>
 
@@ -1036,7 +1036,7 @@ namespace KeyAuth
             return null;
         }
         /// <summary>
-        /// KeyAuth acts as proxy and downlods the file in a secure way
+        /// EpicAuth acts as proxy and downlods the file in a secure way
         /// </summary>
         /// <param name="fileid">File ID</param>
         /// <returns>The bytes of the download file</returns>
@@ -1175,7 +1175,7 @@ namespace KeyAuth
                         Logger.LogEvent("You're connecting too fast to loader, slow down.");
                         TerminateProcess(GetCurrentProcess(), 1);
                         return "";
-                    default: // site won't resolve. you should use keyauth.uk domain since it's not blocked by any ISPs
+                    default: // site won't resolve. you should use EpicAuth.uk domain since it's not blocked by any ISPs
                         error("Connection failure. Please try again, or contact us for help.");
                         Logger.LogEvent("Connection failure. Please try again, or contact us for help.");
                         TerminateProcess(GetCurrentProcess(), 1);
@@ -1351,7 +1351,7 @@ namespace KeyAuth
 
             string exeName = Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location);
 
-            string logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "KeyAuth", "debug", exeName);
+            string logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EpicAuth", "debug", exeName);
             if (!Directory.Exists(logDirectory))
             {
                 Directory.CreateDirectory(logDirectory);

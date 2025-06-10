@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace KeyAuth.Properties
+namespace EpicAuth.Properties
 {
 
 

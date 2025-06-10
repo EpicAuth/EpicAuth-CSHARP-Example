@@ -1,4 +1,4 @@
-namespace KeyAuth
+namespace EpicAuth
 {
     // Token: 0x02000002 RID: 2
     public partial class Login : global::System.Windows.Forms.Form
@@ -59,7 +59,7 @@ namespace KeyAuth
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(155, 47);
             this.label2.TabIndex = 27;
-            this.label2.Text = "KeyAuth";
+            this.label2.Text = "EpicAuth";
             // 
             // label3
             // 

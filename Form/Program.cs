@@ -3,7 +3,7 @@ using System.Windows.Forms;
 
 
 
-namespace KeyAuth
+namespace EpicAuth
 {
     static class Program
     {
