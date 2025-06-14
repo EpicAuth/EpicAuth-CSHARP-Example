@@ -1154,7 +1154,7 @@ namespace EpicAuth
 
                     ServicePointManager.ServerCertificateValidationCallback += assertSSL;
 
-                    var raw_response = client.UploadValues("https://keyauth.site/api/1.3/", post_data);
+                    var raw_response = client.UploadValues("https://EpicAuth.cc/api/1.3/", post_data);
 
                     ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
 

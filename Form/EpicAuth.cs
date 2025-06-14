@@ -1138,7 +1138,7 @@ namespace EpicAuth
         {
             try
             {
-                if (FileCheck("keyauth.site")) // change this url if you're using a custom domain
+                if (FileCheck("EpicAuth.cc")) // change this url if you're using a custom domain
                 {
                     error("File manipulation detected. Terminating process.");
                     Logger.LogEvent("File manipulation detected.");
@@ -1166,7 +1166,7 @@ namespace EpicAuth
                 {
                     client.Timeout = TimeSpan.FromSeconds(20);
 
-                    HttpResponseMessage response = await client.PostAsync("https://keyauth.site/api/1.3/", content); // change this url if you're using a custom domain
+                    HttpResponseMessage response = await client.PostAsync("https://EpicAuth.cc/api/1.3/", content); // change this url if you're using a custom domain
 
                     if (!response.IsSuccessStatusCode)
                     {
