@@ -4,9 +4,9 @@ C:\Users\Administrator\Downloads\EpicAuth-CSHARP-Example-main (1)\EpicAuth-CSHAR
 C:\Users\Administrator\Downloads\EpicAuth-CSHARP-Example-main (1)\EpicAuth-CSHARP-Example-main\Console\obj\Release\Loader.csproj.CoreCompileInputs.cache
 C:\Users\Administrator\Downloads\EpicAuth-CSHARP-Example-main (1)\EpicAuth-CSHARP-Example-main\Console\obj\Release\Loader.exe
 C:\Users\Administrator\Downloads\EpicAuth-CSHARP-Example-main (1)\EpicAuth-CSHARP-Example-main\Console\obj\Release\Loader.exe.config
-C:\Users\Administrator\Documents\GitHub\keyauth-site - Copy\KeyAuth-CSHARP-Example\Console\obj\Release\Loader.csproj.AssemblyReference.cache
-C:\Users\Administrator\Documents\GitHub\keyauth-site - Copy\KeyAuth-CSHARP-Example\Console\obj\Release\Loader.csproj.CoreCompileInputs.cache
-C:\Users\Administrator\Documents\GitHub\keyauth-site - Copy\KeyAuth-CSHARP-Example\Console\obj\Release\Loader.exe
-C:\Users\Administrator\Documents\GitHub\keyauth-site - Copy\KeyAuth-CSHARP-Example\Console\bin\Release\Loader.exe.config
-C:\Users\Administrator\Documents\GitHub\keyauth-site - Copy\KeyAuth-CSHARP-Example\Console\bin\Release\Loader.exe
-C:\Users\Administrator\Documents\GitHub\keyauth-site - Copy\KeyAuth-CSHARP-Example\Console\obj\Release\Loader.exe.config
+C:\Users\Administrator\Documents\GitHub\EpicAuth-site - Copy\EpicAuth-CSHARP-Example\Console\obj\Release\Loader.csproj.AssemblyReference.cache
+C:\Users\Administrator\Documents\GitHub\EpicAuth-site - Copy\EpicAuth-CSHARP-Example\Console\obj\Release\Loader.csproj.CoreCompileInputs.cache
+C:\Users\Administrator\Documents\GitHub\EpicAuth-site - Copy\EpicAuth-CSHARP-Example\Console\obj\Release\Loader.exe
+C:\Users\Administrator\Documents\GitHub\EpicAuth-site - Copy\EpicAuth-CSHARP-Example\Console\bin\Release\Loader.exe.config
+C:\Users\Administrator\Documents\GitHub\EpicAuth-site - Copy\EpicAuth-CSHARP-Example\Console\bin\Release\Loader.exe
+C:\Users\Administrator\Documents\GitHub\EpicAuth-site - Copy\EpicAuth-CSHARP-Example\Console\obj\Release\Loader.exe.config
